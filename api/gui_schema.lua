@@ -419,7 +419,7 @@ function DBB2.schema.CreateMessageRow(name, parent)
   row.charNameBtn:SetFrameLevel(row:GetFrameLevel() + 5)
   
   row.charName = row.charNameBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  row.charName:SetFont("Interface\\AddOns\\DifficultBulletinBoard\\font\\WarSansTT-Bliz-500.ttf", DBB2:GetFontSize(10))
+  DBB2:ApplyTextFont(row.charName, 10, nil)
   row.charName:SetPoint("LEFT", 0, 0)
   row.charName:SetWidth(S.CHARNAME_WIDTH)
   row.charName:SetJustifyH("LEFT")
@@ -466,7 +466,7 @@ function DBB2.schema.CreateMessageRow(name, parent)
   row.messageBtn.isHovered = false
   
   row.message = row.messageBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  row.message:SetFont("Interface\\AddOns\\DifficultBulletinBoard\\font\\WarSansTT-Bliz-500.ttf", DBB2:GetFontSize(10))
+  DBB2:ApplyTextFont(row.message, 10, nil)
   row.message:SetPoint("LEFT", 0, 0)
   row.message:SetPoint("RIGHT", 0, 0)
   row.message:SetJustifyH("LEFT")
@@ -478,6 +478,9 @@ function DBB2.schema.CreateMessageRow(name, parent)
     self._classColor = classColor or "|cffffffff"
     self._fullMessage = message or ""
     self._isTruncated = false
+
+    DBB2:ApplyTextFont(self.charName, 10, self._sender)
+    DBB2:ApplyTextFont(self.message, 10, self._fullMessage)
     
     -- Set character name
     if self.charNameBtn and self.charNameBtn.isHovered then

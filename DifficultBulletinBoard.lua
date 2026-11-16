@@ -507,13 +507,39 @@ function DBB2:GetFontSize(baseSize)
   if self._fontCache[baseSize] then
     return self._fontCache[baseSize]
   end
-  local size = baseSize + DBB2:GetEffectiveFontOffset()
+  local size = math.floor(baseSize + DBB2:GetEffectiveFontOffset() + 0.5)
   -- Clamp between 6 and 24 to prevent crashes in WoW 1.12.1
   -- Using conservative limits as vanilla WoW has strict font rendering constraints
   if size < 6 then size = 6 end
   if size > 24 then size = 24 end
   self._fontCache[baseSize] = size
   return size
+end
+
+-- [ GetTextFont ]
+-- Returns "Fonts\\FRIZQT__.TTF" by default (cleanly rendered by WoW 1.12.1 without
+-- glyph-atlas bleeding). If the user enables /dbb cjkfont (for clients whose
+-- FRIZQT__.TTF lacks CJK glyphs), CJK text uses the bundled WarSansTT-Bliz-500.ttf.
+function DBB2:GetTextFont(text)
+  if DBB2_Config and DBB2_Config.useBuiltinCJKFont then
+    if text ~= nil and text ~= "" and self.api and self.api.ContainsCJK and self.api.ContainsCJK(text) then
+      return "Interface\\AddOns\\DifficultBulletinBoard\\font\\WarSansTT-Bliz-500.ttf"
+    end
+  end
+  return "Fonts\\FRIZQT__.TTF"
+end
+
+-- [ ApplyTextFont ]
+-- Applies the appropriate font at an integer size, avoiding redundant SetFont calls.
+function DBB2:ApplyTextFont(fontString, baseSize, text)
+  if not fontString then return end
+  local size = self:GetFontSize(baseSize)
+  local fontPath = self:GetTextFont(text)
+  if fontString._dbbFontPath ~= fontPath or fontString._dbbFontSize ~= size then
+    fontString:SetFont(fontPath, size)
+    fontString._dbbFontPath = fontPath
+    fontString._dbbFontSize = size
+  end
 end
 
 -- [ GetScaleFactor ]
@@ -574,8 +600,20 @@ SlashCmdList["DBB"] = function(msg)
       DEFAULT_CHAT_FRAME:AddMessage("  " .. DBB2.debugLog[i])
     end
     return
+  elseif cmd == "cjkfont" then
+    DBB2_Config.useBuiltinCJKFont = not DBB2_Config.useBuiltinCJKFont
+    local mode = DBB2_Config.useBuiltinCJKFont and "Bundled WarSansTT-Bliz-500.ttf (CJK only)" or "Client Fonts\\FRIZQT__.TTF"
+    DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccDBB2:|r Font mode: " .. mode .. ". Refreshing rows...")
+    if DBB2.gui and DBB2.gui:IsShown() then
+      if DBB2.gui.UpdateMessages then DBB2.gui:UpdateMessages() end
+      if DBB2.gui.tabs and DBB2.gui.tabs.activeTab then
+        local panel = DBB2.gui.tabs.panels[DBB2.gui.tabs.activeTab]
+        if panel and panel.UpdateCategories then panel.UpdateCategories() end
+      end
+    end
+    return
   elseif cmd == "help" then
-    DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccDBB2 Commands:|r /dbb (toggle), /dbb trace (toggle trace), /dbb perf (counters), /dbb log (last 20 trace lines)")
+    DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccDBB2 Commands:|r /dbb (toggle), /dbb cjkfont (toggle FRIZQT vs WarSans CJK), /dbb trace, /dbb perf, /dbb log")
     return
   end
 
