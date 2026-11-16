@@ -789,19 +789,19 @@ DBB2:RegisterModule("gui", function()
               
               -- Collapse indicator
               catFrame.collapseIndicator = catFrame.headerBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-              catFrame.collapseIndicator:SetFont("Interface\\AddOns\\DifficultBulletinBoard\\font\\WarSansTT-Bliz-500.ttf", DBB2:GetFontSize(14))
+              catFrame.collapseIndicator:SetFont(DBB2:GetTextFont(), DBB2:GetFontSize(14))
               catFrame.collapseIndicator:SetPoint("LEFT", S.ROW_LEFT_PADDING, 0)
               catFrame.collapseIndicator:SetWidth(DBB2:ScaleSize(12))
               catFrame.collapseIndicator:SetText("+")
               
               -- Category header text
               catFrame.header = catFrame.headerBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-              catFrame.header:SetFont("Interface\\AddOns\\DifficultBulletinBoard\\font\\WarSansTT-Bliz-500.ttf", DBB2:GetFontSize(10))
+              catFrame.header:SetFont(DBB2:GetTextFont(cat.name), DBB2:GetFontSize(10))
               catFrame.header:SetPoint("LEFT", catFrame.collapseIndicator, "RIGHT", 3, 0)
               catFrame.header:SetTextColor(hr, hg, hb, 1)
 
               catFrame.levelRange = catFrame.headerBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-              catFrame.levelRange:SetFont("Interface\\AddOns\\DifficultBulletinBoard\\font\\WarSansTT-Bliz-500.ttf", DBB2:GetFontSize(9))
+              catFrame.levelRange:SetFont(DBB2:GetTextFont(), DBB2:GetFontSize(9))
               catFrame.levelRange:SetTextColor(0.48, 0.48, 0.48, 1)
               catFrame.levelRange:Hide()
               

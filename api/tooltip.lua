@@ -93,7 +93,7 @@ function DBB2.api.ShowTooltip(owner, anchor, lines)
     end
     
     local line = tooltip.lines[i]
-    line:SetFont("Interface\\AddOns\\DifficultBulletinBoard\\font\\WarSansTT-Bliz-500.ttf", fontSize)
+    line:SetFont(DBB2:GetTextFont(text), fontSize)
     line:SetWidth(0)
     line:SetText(text or "")
     line:SetTextColor(r, g, b, 1)
