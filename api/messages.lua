@@ -279,7 +279,7 @@ function DBB2.api.AddMessage(message, sender, channel, msgType)
   DBB2.api.CheckAndNotify(message, sender, msgType)
 
   -- Store message
-  table_insert(DBB2.messages, {
+  local storedObj = {
     message = message,
     _rawMessage = rawMessage,
     _hasCJKOrigin = hasCJKOrigin,
@@ -288,7 +288,12 @@ function DBB2.api.AddMessage(message, sender, channel, msgType)
     channel = channel or "",
     time = time(),
     type = msgType or ""
-  })
+  }
+  table_insert(DBB2.messages, storedObj)
+
+  if hasCJKOrigin and DBB2.api.RequestAsyncTranslation and DBB2.api.ContainsCJK(message) then
+    DBB2.api.RequestAsyncTranslation(storedObj)
+  end
   
   -- Keep only last MAX_MESSAGES messages
   if table_getn(DBB2.messages) > MAX_MESSAGES then
@@ -335,9 +340,18 @@ end
 function DBB2.api.ClearMessages()
   DBB2.messages = {}
   
-  -- Update GUI if visible
-  if DBB2.gui and DBB2.gui:IsShown() and DBB2.gui.UpdateMessages then
-    DBB2.gui:UpdateMessages()
+  -- Update GUI if visible (logs and active categorized tab)
+  if DBB2.gui and DBB2.gui:IsShown() then
+    if DBB2.gui.UpdateMessages then
+      DBB2.gui:UpdateMessages()
+    end
+    local activeTab = DBB2.gui.tabs and DBB2.gui.tabs.activeTab
+    if activeTab and DBB2.gui.tabs.panels then
+      local panel = DBB2.gui.tabs.panels[activeTab]
+      if panel and panel.UpdateCategories then
+        panel.UpdateCategories()
+      end
+    end
   end
   return true
 end

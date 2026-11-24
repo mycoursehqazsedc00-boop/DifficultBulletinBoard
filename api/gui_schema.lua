@@ -149,11 +149,12 @@ local _truncCacheCount = 0
 local TRUNC_CACHE_MAX = 500
 
 function DBB2.schema.TruncateMessage(row, availableWidth)
-  local fullMsg = row._fullMessage
+  local fullMsg = row._fullMessage or ""
   local msgLen  = string.len(fullMsg)
   local roundedW = math.floor(availableWidth + 0.5)
   local fontOffset = DBB2_Config and DBB2_Config.fontOffset or 0
-  local widthKey = roundedW .. ":" .. fontOffset
+  local cjkFlag = (DBB2_Config and DBB2_Config.useBuiltinCJKFont == false) and "0" or "1"
+  local widthKey = roundedW .. ":" .. fontOffset .. ":" .. cjkFlag
 
   if DBB2.perf then
     DBB2.perf.truncCalls = DBB2.perf.truncCalls + 1
@@ -433,6 +434,11 @@ function DBB2.schema.CreateMessageRow(name, parent)
     if not sender or sender == "" or sender == "Unknown" then return end
     
     if arg1 == "LeftButton" then
+      if IsAltKeyDown() and type(Meeting) == "table" and type(Meeting.QuickApply) == "function" then
+        if Meeting.QuickApply(sender) then
+          return
+        end
+      end
       if IsShiftKeyDown() then
         SendWho("n-\"" .. sender .. "\"")
       else
@@ -594,11 +600,27 @@ function DBB2.schema.CreateMessageRow(name, parent)
       if DBB2.tooltip and DBB2.tooltip:IsShown() then
         DBB2.api.DismissMessageTooltip()
       end
+      if parent._sender and type(Meeting) == "table" and type(Meeting.FindActivity) == "function" then
+        local act = Meeting:FindActivity(parent._sender)
+        if act and act.IsChat and not act:IsChat() then
+          local info = Meeting.GetActivityInfo and Meeting.GetActivityInfo(act.code)
+          local actName = (info and info.name) or act.code or "Group"
+          local maxMem = Meeting.GetActivityMaxMembers and Meeting.GetActivityMaxMembers(act.code) or "?"
+          DBB2.api.ShowTooltip(this, "RIGHT", {
+            {parent._sender .. " (Meeting)", "highlight"},
+            actName .. " (" .. tostring(act.members or 1) .. "/" .. tostring(maxMem) .. ")",
+            {"Alt+Click: Quick Apply in Meeting", "gray"}
+          })
+        end
+      end
     else
       this.isHovered = false
       local classColor = parent._classColor or "|cffffffff"
       parent.charName:SetText(classColor .. (parent._sender or "Unknown") .. "|r")
       parent.charName:SetTextColor(1, 1, 1, 1)
+      if DBB2.api.HideTooltip then
+        DBB2.api.HideTooltip()
+      end
     end
   end)
   

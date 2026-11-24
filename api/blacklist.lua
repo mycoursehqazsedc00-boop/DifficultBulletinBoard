@@ -267,9 +267,9 @@ function DBB2.api.IsMessageBlacklistedByKeyword(message)
 end
 
 -- [ IsMessageBlacklisted ]
--- Checks if a message should be filtered (player or keyword)
--- Returns: blocked (boolean), reason (string: "player" or "keyword"), details (string or table)
-function DBB2.api.IsMessageBlacklisted(message, sender)
+-- Checks if a message should be filtered (player or keyword, plus Meeting block words if loaded)
+-- Returns: blocked (boolean), reason (string: "player", "keyword", or "meeting_block"), details (string or table)
+function DBB2.api.IsMessageBlacklisted(message, sender, skipMeeting)
   if not DBB2.api.IsBlacklistEnabled() then return false, nil, nil end
   
   if DBB2.api.IsPlayerBlacklisted(sender) then
@@ -279,6 +279,12 @@ function DBB2.api.IsMessageBlacklisted(message, sender)
   local keywordBlocked, matchedKeywords = DBB2.api.IsMessageBlacklistedByKeyword(message)
   if keywordBlocked then
     return true, "keyword", matchedKeywords
+  end
+
+  if not skipMeeting and type(Meeting) == "table" and type(Meeting.CheckBlockWords) == "function" then
+    if Meeting.CheckBlockWords(sender, message, true) then
+      return true, "meeting_block", sender
+    end
   end
   
   return false, nil, nil

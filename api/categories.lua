@@ -543,7 +543,7 @@ function DBB2.api.MatchMessageToCategory(message, category, ignoreSelected, cate
   
   -- Check filter tags first (if enabled for this category type)
   -- This is an AND condition - message must match BOTH filter tags AND category tags
-  if not skipFilterTagCheck and not ignoreFilterTags and categoryType and (categoryType == "groups" or categoryType == "professions") then
+  if not skipFilterTagCheck and not ignoreFilterTags and categoryType and (categoryType == "groups" or categoryType == "professions" or categoryType == "hardcore") then
     if not DBB2.api.MatchFilterTags(message, categoryType) then
       return false
     end
@@ -733,17 +733,35 @@ end
 --                                   hardcore = {string...},    -- Array of matched hardcore category names
 --                                   isHardcore = boolean       -- true if any hardcore category matched
 --                                 }
+local _catStringMemo = {}
+local _catStringMemoRev = 0
+local _catStringMemoCount = 0
+local CAT_MEMO_MAX = 128
+
 function DBB2.api.CategorizeMessage(message, ignoreSelected, ignoreFilterTags)
   -- Create fresh result table each call (safer than pooling)
+  if not message or message == "" or not DBB2_Config.categories then
+    return { groups = {}, professions = {}, hardcore = {}, isHardcore = false }
+  end
+
+  local rev = DBB2._catConfigRev or 1
+  if _catStringMemoRev ~= rev then
+    _catStringMemo = {}
+    _catStringMemoRev = rev
+    _catStringMemoCount = 0
+  end
+  local memoKey = (ignoreSelected and "1" or "0") .. ":" .. (ignoreFilterTags and "1" or "0") .. "|" .. message
+  local cached = _catStringMemo[memoKey]
+  if cached then
+    return cached
+  end
+
   local result = {
     groups = {},
     professions = {},
     hardcore = {},
     isHardcore = false
   }
-  
-  if not message or message == "" then return result end
-  if not DBB2_Config.categories then return result end
   
   local lowerMsg = string_lower(message)
   
@@ -767,14 +785,23 @@ function DBB2.api.CategorizeMessage(message, ignoreSelected, ignoreFilterTags)
     end
   end
   
-  -- Check hardcore (no filter tags for hardcore)
-  for _, cat in ipairs(DBB2_Config.categories.hardcore or {}) do
-    if DBB2.api.MatchMessageToCategory(message, cat, ignoreSelected, "hardcore", ignoreFilterTags, lowerMsg, true) then
-      table_insert(result.hardcore, cat.name)
-      result.isHardcore = true
+  -- Check hardcore (respect hardcore filter tags if enabled)
+  if ignoreFilterTags or DBB2.api.MatchFilterTags(message, "hardcore") then
+    for _, cat in ipairs(DBB2_Config.categories.hardcore or {}) do
+      if DBB2.api.MatchMessageToCategory(message, cat, ignoreSelected, "hardcore", ignoreFilterTags, lowerMsg, true) then
+        table_insert(result.hardcore, cat.name)
+        result.isHardcore = true
+      end
     end
   end
   
+  if _catStringMemoCount >= CAT_MEMO_MAX then
+    _catStringMemo = {}
+    _catStringMemoCount = 0
+  end
+  _catStringMemo[memoKey] = result
+  _catStringMemoCount = _catStringMemoCount + 1
+
   return result
 end
 
@@ -838,14 +865,20 @@ function DBB2.api.GetCategorizedMessages(categoryType)
   local function isDuplicateInCategory(catMessages, msg)
     if spamSeconds <= 0 then return false end
     
-    local lowerMsg = string_lower(DBB2.api.StripHyperlinks(msg.message or ""))
+    if not msg._cleanLower then
+      msg._cleanLower = string_lower(DBB2.api.StripHyperlinks(msg.message or ""))
+    end
+    local lowerMsg = msg._cleanLower
     local lowerSender = string_lower(msg.sender or "")
     local msgTime = msg.time or 0
     
     for _, existing in ipairs(catMessages) do
       local timeDiff = math_abs(msgTime - (existing.time or 0))
       if timeDiff <= spamSeconds then
-        local existingMsg = string_lower(DBB2.api.StripHyperlinks(existing.message or ""))
+        if not existing._cleanLower then
+          existing._cleanLower = string_lower(DBB2.api.StripHyperlinks(existing.message or ""))
+        end
+        local existingMsg = existing._cleanLower
         local existingSender = string_lower(existing.sender or "")
         if existingSender == lowerSender and existingMsg == lowerMsg then
           return true

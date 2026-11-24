@@ -130,6 +130,9 @@ DBB2:RegisterModule("config", function()
       if panel and panel.filterTagsInput and panel.filterCategoryType then
         DBB2.api.UpdateFilterTags(panel.filterCategoryType, DBB2.api.ParseTagsString(panel.filterTagsInput:GetText()))
       end
+      if panel and panel.customCategoryInput and panel.customCategoryType and panel.customCategoryName then
+        DBB2.api.UpdateCategoryTags(panel.customCategoryType, panel.customCategoryName, DBB2.api.ParseTagsString(panel.customCategoryInput:GetText()))
+      end
     end
     ReloadUI()
   end)

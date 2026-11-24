@@ -6,10 +6,12 @@ A World of Warcraft 1.12 / Turtle WoW addon that scans world chat and organizes 
 
 | Mod / Addon | Purpose in this addon | Required? |
 |---|---|---|
-| **[ClassicAPI](https://github.com/brues-code/ClassicAPI)** | Calls `C_PlayerCache.GetPlayerInfoByName` to display sender names in their class colors (`RAID_CLASS_COLORS`). Falls back to white text when absent. | Optional |
-| **[WoWTranslate](https://github.com/sanjaygbhat/wow-translate)** (v2.2 fork) | Reuses `WoWTranslate_CacheGet` (user dictionary, ranked cache, shared dictionary), `WoWTranslate_GetItemName` (item-link localization), `WoWTranslate_ReplaceItemNames` (plain-text CN item names), and `WoWTranslate_CheckGlossaryExact` / `WoWTranslate_CheckGlossaryPartial`. Falls back to DBB2's built-in CN dictionaries when absent. | Optional |
+| **[ClassicAPI](https://github.com/brues-code/ClassicAPI)** | Calls `C_PlayerCache.GetPlayerInfoByName` to display sender names in their cross-faction class colors (`RAID_CLASS_COLORS`). Falls back to white text when absent. | Optional |
+| **UnitXP SP3** | Calls `UnitXP("notify", "taskbarIcon")` (5s cooldown) when a watched category notification fires while alt-tabbed. | Optional |
+| **[WoWTranslate](https://github.com/sanjaygbhat/wow-translate)** (v2.2 fork) | Subscribes to `WoWTranslate_RegisterCallback("ON_TRANSLATED")` for zero-duplicate push upgrades, uses `"LOW"` priority in `WoWTranslate_API.Translate`, and reuses `WoWTranslate_CacheGet`, `WoWTranslate_GetItemName`, `WoWTranslate_ReplaceItemNames`, and `WoWTranslate_CheckGlossaryExact` / `WoWTranslate_CheckGlossaryPartial`. Falls back to DBB2's built-in CN dictionaries when absent. | Optional |
+| **Meeting** | Shared Blacklist / Block Words synergy (`Meeting.CheckBlockWords`) and `Alt+Click` Quick-Apply bridge (`Meeting.QuickApply`) with hover tooltip when a sender has an active Meeting room. | Optional |
 
-No other client DLL mods (SuperWoW, Nampower, UnitXP SP3, VanillaHelpers, WeirdUtils) are called by this addon.
+No other client DLL mods (SuperWoW, Nampower, VanillaHelpers, WeirdUtils) are called by this addon.
 
 ## Features
 
@@ -34,11 +36,17 @@ No other client DLL mods (SuperWoW, Nampower, UnitXP SP3, VanillaHelpers, WeirdU
   - Per-row hover handlers short-circuit `MouseIsOver(this)` before walking the frame hierarchy in `IsRowVisibleInScrollFrame`.
   - `UpdateCategories` only calls `row:SetParent(catFrame)` when the parent actually changed, and `row:SetData` only re-anchors timestamp/message frames when `timeDisplayMode` changes.
 
-### WoWTranslate v2.2 Integration & CN Pipeline Optimization
-- **Hyperlink-safe segmentation & item-link localization:** Extracts `|H...|h[...]|h` links before translation so dictionary rules never corrupt links, and localizes Chinese `|Hitem:...|h` names to English using `WoWTranslate_GetItemName` (client cache -> persistent store -> bundled 6,111-item table).
-- **Multi-tier lookup:** Checks `WoWTranslate_CacheGet` (including `/wt fix` user dictionary entries), then `WoWTranslate_ReplaceItemNames`, DBB2's ordered LFG phrase rules, `WoWTranslate_CheckGlossaryPartial`, and finally DBB2's misc dictionary.
-- **Lazy cache upgrade:** When opening or refreshing the board, CJK-origin messages check `WoWTranslate_CacheGet` once to pick up async DLL translations that completed after `CHAT_MSG_*` fired.
-- **Faster `dict_cn_misc` lookup:** Replaced per-character table allocation + inner string concatenation with byte-offset slicing and a bounded session memo table.
+### WoWTranslate v2.2 Hub & Meeting Synergy
+- **Zero-duplicate `ON_TRANSLATED` push updates:** Subscribes to `WoWTranslate_RegisterCallback("ON_TRANSLATED")` so translations completed for live chat automatically upgrade `_translateMemo`, stored `DBB2.messages`, and visible tabs with zero duplicate DLL calls. Background fallback requests use `"LOW"` priority.
+- **Hyperlink-safe segmentation & item-link localization:** Extracts `|H...|h[...]|h` links before translation so dictionary rules never corrupt links, and localizes Chinese `|Hitem:...|h` names to English using `WoWTranslate_GetItemName` (client cache -> persistent store -> bundled 6,109-item table).
+- **Shared Blacklist with Meeting:** Messages or senders blocked in `Meeting` are automatically filtered in `DBB2` (and vice versa).
+- **Quick-Apply Bridge (`Alt+Click`):** Hovering a sender who has an active `Meeting` group shows their room summary in a tooltip; `Alt+Click` on their name opens `Meeting`'s Apply prompt directly.
+
+### Bug Fixes & Polish
+- **Checkbox tooltips & channel frame pooling:** Attached checkbox `OnEnter`/`OnLeave` handlers to `check.button` so channel/config tooltips display properly, and pooled `panel._channelPool` in `RenderChannelList` to eliminate permanent C++ Frame leaks.
+- **Notifications & UnitXP SP3:** Early-returned in `SendNotification` when Notification Mode is Off (`0`) so `duck.wav` no longer plays while muted; added feature-detected UnitXP SP3 taskbar notification (5s cooldown).
+- **Hardcore filter tags & Save/Reload:** Enabled `"hardcore"` in `MatchFilterTags` and flushed unsaved Custom Category tags on "Save & Reload".
+- **Tooltip clamping & truncation cache:** Fixed top-right screen clamp resetting horizontal flips, reset shared `titleLine` width/font state, included `useBuiltinCJKFont` in `TruncateMessage` cache keys, fixed `"2m"` → `"1m"` in `FormatRelativeTime`, refreshed active categorized tabs in `ClearMessages`, and fixed `UIParent:GetEffectiveScale()` during `Ctrl+Drag` minimap free-positioning.
 
 ### Class-Colored Sender Names & Diagnostics
 - **Class-colored sender names:** Implemented `DBB2.api.GetSenderClassColor(sender)` using ClassicAPI's `C_PlayerCache.GetPlayerInfoByName` (cached per session, white fallback without ClassicAPI).

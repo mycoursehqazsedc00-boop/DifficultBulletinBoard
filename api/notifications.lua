@@ -280,8 +280,25 @@ end
 -- 'categoryName'   [string]        the category name that matched
 -- 'sender'         [string]        the message sender
 -- 'message'        [string]        the message text
+local _hasUnitXP = nil
+local _lastTaskbarNotify = 0
+local function NotifyTaskbar()
+  if _hasUnitXP == nil then
+    _hasUnitXP = pcall(UnitXP, "nop", "nop") and true or false
+  end
+  if not _hasUnitXP then return end
+  local now = GetTime()
+  if now - _lastTaskbarNotify < 5 then return end
+  _lastTaskbarNotify = now
+  pcall(UnitXP, "notify", "taskbarIcon")
+end
+
 function DBB2.api.SendNotification(categoryName, sender, message)
   local settings = DBB2.api.GetNotificationSettings()
+  if not settings.chat and not settings.raidWarn then
+    return
+  end
+  NotifyTaskbar()
   
   -- Guard against nil values
   categoryName = categoryName or "Unknown"

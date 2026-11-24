@@ -118,7 +118,7 @@ function DBB2.api.FormatRelativeTime(timestamp)
   if diff < 60 then
     return "<1m"
   elseif diff < 120 then
-    return "2m"
+    return "1m"
   elseif diff < 3600 then
     local minutes = math_floor(diff / 60)
     return minutes .. "m"

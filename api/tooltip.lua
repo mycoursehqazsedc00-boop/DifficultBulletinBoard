@@ -93,7 +93,10 @@ function DBB2.api.ShowTooltip(owner, anchor, lines)
     end
     
     local line = tooltip.lines[i]
-    line:SetFont(DBB2:GetTextFont(text), fontSize)
+    local lineFont = DBB2:GetTextFont(text)
+    line:SetFont(lineFont, fontSize)
+    line._dbbFontPath = lineFont
+    line._dbbFontSize = fontSize
     line:SetWidth(0)
     line:SetText(text or "")
     line:SetTextColor(r, g, b, 1)
@@ -168,20 +171,18 @@ function DBB2.api.ShowTooltip(owner, anchor, lines)
     x, y = x / scale, y / scale
     tooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x + 15, y + 10)
     
-    -- Keep on screen
+    -- Keep on screen (handle horizontal and vertical flips together)
     local screenWidth = GetScreenWidth()
     local screenHeight = GetScreenHeight()
     local tipWidth = tooltip:GetWidth()
     local tipHeight = tooltip:GetHeight()
-    
-    if x + 15 + tipWidth > screenWidth then
-      tooltip:ClearAllPoints()
-      tooltip:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMLEFT", x - 5, y + 10)
-    end
-    if y + 10 + tipHeight > screenHeight then
-      tooltip:ClearAllPoints()
-      tooltip:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x + 15, y - 5)
-    end
+    local flipX = (x + 15 + tipWidth > screenWidth)
+    local flipY = (y + 10 + tipHeight > screenHeight)
+    local point = (flipY and "TOP" or "BOTTOM") .. (flipX and "RIGHT" or "LEFT")
+    local ox = flipX and (x - 5) or (x + 15)
+    local oy = flipY and (y - 5) or (y + 10)
+    tooltip:ClearAllPoints()
+    tooltip:SetPoint(point, UIParent, "BOTTOMLEFT", ox, oy)
   elseif anchor == "RIGHT" and owner then
     tooltip:SetPoint("LEFT", owner, "RIGHT", 5, 0)
   elseif anchor == "LEFT" and owner then
@@ -239,6 +240,7 @@ function DBB2.api.ShowMessageTooltip(owner, sender, message)
   -- Title (sender)
   local titleLine = tooltip.lines[1]
   DBB2:ApplyTextFont(titleLine, 10, sender)
+  titleLine:SetWidth(0)
   titleLine:SetText(sender)
   titleLine:SetTextColor(hr, hg, hb, 1)
   titleLine:ClearAllPoints()
@@ -302,18 +304,16 @@ function DBB2.api.ShowMessageTooltip(owner, sender, message)
   tooltip:ClearAllPoints()
   tooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x + 15, y + 10)
   
-  -- Keep on screen
+  -- Keep on screen (handle horizontal and vertical flips together)
   local screenWidth = GetScreenWidth()
   local screenHeight = GetScreenHeight()
-  
-  if x + 15 + tooltipWidth > screenWidth then
-    tooltip:ClearAllPoints()
-    tooltip:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMLEFT", x - 5, y + 10)
-  end
-  if y + 10 + tooltipHeight > screenHeight then
-    tooltip:ClearAllPoints()
-    tooltip:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x + 15, y - 5)
-  end
+  local flipX = (x + 15 + tooltipWidth > screenWidth)
+  local flipY = (y + 10 + tooltipHeight > screenHeight)
+  local point = (flipY and "TOP" or "BOTTOM") .. (flipX and "RIGHT" or "LEFT")
+  local ox = flipX and (x - 5) or (x + 15)
+  local oy = flipY and (y - 5) or (y + 10)
+  tooltip:ClearAllPoints()
+  tooltip:SetPoint(point, UIParent, "BOTTOMLEFT", ox, oy)
   
   -- Store state for message tooltips (used by message rows)
   tooltip.activeData = {sender = sender, message = message}

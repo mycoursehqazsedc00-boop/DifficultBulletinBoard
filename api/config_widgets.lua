@@ -57,9 +57,11 @@ function RenderChannelList(parent, panel, item, x, y)
   
   local totalHeight = checkSize  -- Minimum height
   
+  panel._channelPool = panel._channelPool or {}
+
   local function Rebuild()
-    -- Hide existing checkboxes
-    for _, check in ipairs(panel.channelCheckboxes) do
+    -- Hide existing pooled checkboxes
+    for _, check in ipairs(panel._channelPool) do
       check:Hide()
     end
     panel.channelCheckboxes = {}
@@ -88,6 +90,7 @@ function RenderChannelList(parent, panel, item, x, y)
     
     local currentY = 0
     totalHeight = 0
+    local poolIdx = 0
     
     for i, channelName in ipairs(channelList) do
       if channelName == "-" then
@@ -95,33 +98,48 @@ function RenderChannelList(parent, panel, item, x, y)
         currentY = currentY - sectionGap
         totalHeight = totalHeight + sectionGap
       else
-        local check = DBB2.schema.CreateCheckBox(nil, container, channelName, FONT_SIZE)
+        poolIdx = poolIdx + 1
+        local check = panel._channelPool[poolIdx]
+        if not check then
+          check = DBB2.schema.CreateCheckBox(nil, container, channelName, FONT_SIZE)
+          check.button:SetScript("OnEnter", function()
+            local parentCheck = this:GetParent()
+            local r, g, b = DBB2:GetHighlightColor()
+            this.backdrop:SetBackdropBorderColor(r, g, b, 1)
+            local desc = channelDescriptions[parentCheck._channelName] or "Monitor this channel."
+            DBB2.api.ShowTooltip(parentCheck, "RIGHT", {{parentCheck._channelName, "highlight"}, desc})
+          end)
+          check.button:SetScript("OnLeave", function()
+            this.backdrop:SetBackdropBorderColor(0.3, 0.3, 0.3, 1)
+            DBB2.api.HideTooltip()
+          end)
+          panel._channelPool[poolIdx] = check
+        end
+
+        check:ClearAllPoints()
         check:SetPoint("TOPLEFT", container, "TOPLEFT", 0, currentY)
         check:SetWidth(checkSize)
         check:SetHeight(checkSize)
         check._channelName = channelName
+        if check.label then
+          check.label:SetFont(DBB2:GetTextFont(channelName), DBB2:GetFontSize(FONT_SIZE))
+          check.label:SetText(channelName)
+        end
         
         if channelName == "Hardcore" and not isHardcoreChar then
           check:SetChecked(false)
+          check.OnChecked = nil
           check:Disable()
         else
+          check:Enable()
           check:SetChecked(DBB2.api.IsChannelMonitored(channelName))
+          local thisCheck = check
           check.OnChecked = function(checked)
-            DBB2.api.SetChannelMonitored(check._channelName, checked)
+            DBB2.api.SetChannelMonitored(thisCheck._channelName, checked)
           end
         end
         
-        check:SetScript("OnEnter", function()
-          local r, g, b = DBB2:GetHighlightColor()
-          this.backdrop:SetBackdropBorderColor(r, g, b, 1)
-          local desc = channelDescriptions[this._channelName] or "Monitor this channel."
-          DBB2.api.ShowTooltip(this, "RIGHT", {{this._channelName, "highlight"}, desc})
-        end)
-        check:SetScript("OnLeave", function()
-          this.backdrop:SetBackdropBorderColor(0.3, 0.3, 0.3, 1)
-          DBB2.api.HideTooltip()
-        end)
-        
+        check:Show()
         table_insert(panel.channelCheckboxes, check)
         currentY = currentY - checkSize - rowSpacing
         totalHeight = totalHeight + checkSize + rowSpacing
@@ -446,6 +464,9 @@ function RenderCategoryList(parent, panel, item, x, y)
     customInput:SetPoint("TOPLEFT", customToggle, "BOTTOMLEFT", 0, -customInputGap)
     customInput:SetPoint("RIGHT", container, "RIGHT", -DBB2:ScaleSize(5), 0)
     customInput:SetText(DBB2.api.TagsToString(customCategory.tags))
+    panel.customCategoryInput = customInput
+    panel.customCategoryType = categoryType
+    panel.customCategoryName = customCategory.name
     customInput:SetScript("OnEnterPressed", function()
       DBB2.api.UpdateCategoryTags(categoryType, customCategory.name, DBB2.api.ParseTagsString(this:GetText()))
       this:ClearFocus()

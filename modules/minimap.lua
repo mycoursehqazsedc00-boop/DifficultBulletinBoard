@@ -79,16 +79,16 @@ DBB2:RegisterModule("minimap", function()
   DBB2.minimapButton:SetScript("OnUpdate", function()
     if this.isDragging then
       local mx, my = GetCursorPosition()
-      local scale = Minimap:GetEffectiveScale()
-      mx = mx / scale
-      my = my / scale
-      
       if this.freeDragging then
-        -- Free drag mode - place anywhere
+        -- Free drag mode - anchored to UIParent, so use UIParent effective scale
+        local uiScale = UIParent:GetEffectiveScale()
         DBB2.minimapButton.freeMode = true
-        DBB2.minimapButton.freePos = { x = mx, y = my }
+        DBB2.minimapButton.freePos = { x = mx / uiScale, y = my / uiScale }
       else
         -- Locked drag mode - rotate around minimap
+        local scale = Minimap:GetEffectiveScale()
+        mx = mx / scale
+        my = my / scale
         DBB2.minimapButton.freeMode = false
         local px, py = Minimap:GetCenter()
         local angle = math_deg(math_atan2(my - py, mx - px))

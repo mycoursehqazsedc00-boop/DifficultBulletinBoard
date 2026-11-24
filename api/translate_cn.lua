@@ -139,10 +139,12 @@ local function ReconstructWithLinks(segments, translatedText)
   for i = 1, linkCount do
     local ph1 = "http://ph.wt/" .. i
     local ph2 = "https://ph.wt/" .. i
+    local ph3 = "http://ph .wt/" .. i
+    local ph4 = "http: //ph.wt/" .. i
     local s, e = string_find(work, ph1, 1, true)
-    if not s then
-      s, e = string_find(work, ph2, 1, true)
-    end
+    if not s then s, e = string_find(work, ph2, 1, true) end
+    if not s then s, e = string_find(work, ph3, 1, true) end
+    if not s then s, e = string_find(work, ph4, 1, true) end
     if s then
       work = string_sub(work, 1, s - 1) .. linkContents[i] .. string_sub(work, e + 1)
     else
@@ -398,8 +400,10 @@ function DBB2.api.UpgradeMessageTranslation(msgObj)
   upgraded = string_gsub(upgraded, "%s+", " ")
   upgraded = string_gsub(upgraded, "%s+$", "")
   if upgraded ~= "" and upgraded ~= msgObj.message then
+    _translateMemo[raw] = upgraded
     msgObj.message = upgraded
     msgObj._catCache = nil
+    msgObj._cleanLower = nil
     msgObj._wtUpgraded = true
     if DBB2 and DBB2.perf then
       DBB2.perf.wtAsyncUpgrades = DBB2.perf.wtAsyncUpgrades + 1
@@ -412,3 +416,131 @@ function DBB2.api.UpgradeMessageTranslation(msgObj)
   msgObj._wtUpgraded = true
   return false
 end
+
+-- [ RequestAsyncTranslation ]
+-- If a CJK-origin message still has untranslated CJK characters after local passes,
+-- optionally queues an async WoWTranslate_API.Translate request (only when the DLL
+-- queue has spare capacity) and updates the stored message + visible UI on completion.
+function DBB2.api.RequestAsyncTranslation(msgObj)
+  if not msgObj or not msgObj._hasCJKOrigin or msgObj._wtRequested then
+    return false
+  end
+  if type(WoWTranslate_API) ~= "table" or type(WoWTranslate_API.IsAvailable) ~= "function" then
+    return false
+  end
+  if not WoWTranslate_API.IsAvailable() then
+    return false
+  end
+  if type(WoWTranslate_API.GetPendingCount) == "function" and WoWTranslate_API.GetPendingCount() >= 3 then
+    return false
+  end
+  local raw = msgObj._rawMessage
+  if not raw or raw == "" then
+    return false
+  end
+  if not DBB2.api.ContainsCJK(msgObj.message) then
+    return false
+  end
+
+  local segments = SegmentLinks(raw)
+  local parts = {}
+  local linkIndex = 0
+  for _, seg in ipairs(segments) do
+    if seg.type == "link" then
+      linkIndex = linkIndex + 1
+      table_insert(parts, " http://ph.wt/" .. linkIndex .. " ")
+    else
+      local clean = string_gsub(seg.content, "|c%x%x%x%x%x%x%x%x", "")
+      clean = string_gsub(clean, "|r", "")
+      table_insert(parts, clean)
+    end
+  end
+  local plainText = table_concat(parts)
+  if plainText == "" then return false end
+
+  msgObj._wtRequested = true
+  return WoWTranslate_API.Translate(plainText, function(translation, err)
+    if not translation or translation == "" then return end
+    if type(WoWTranslate_CacheSave) == "function" then
+      WoWTranslate_CacheSave(raw, translation)
+    end
+    local reconstructed = ReconstructWithLinks(segments, translation)
+    reconstructed = string_gsub(reconstructed, "%s+", " ")
+    reconstructed = string_gsub(reconstructed, "%s+$", "")
+    if reconstructed ~= "" and reconstructed ~= msgObj.message then
+      _translateMemo[raw] = reconstructed
+      msgObj.message = reconstructed
+      msgObj._catCache = nil
+      msgObj._cleanLower = nil
+      msgObj._wtUpgraded = true
+      if DBB2 and DBB2.perf then
+        DBB2.perf.wtAsyncUpgrades = DBB2.perf.wtAsyncUpgrades + 1
+      end
+      if DBB2 and DBB2.Trace then
+        DBB2:Trace("TRANSLATE", "async DLL upgrade: " .. string_sub(reconstructed, 1, 60))
+      end
+      if DBB2.gui and DBB2.gui:IsShown() then
+        if DBB2.gui.UpdateMessages then DBB2.gui:UpdateMessages() end
+        if DBB2.gui.tabs and DBB2.gui.tabs.activeTab then
+          local activeTab = DBB2.gui.tabs.activeTab
+          if activeTab == "Groups" or activeTab == "Professions" or activeTab == "Hardcore" then
+            local panel = DBB2.gui.tabs.panels[activeTab]
+            if panel and panel.UpdateCategories then panel.UpdateCategories() end
+          end
+        end
+      end
+    end
+  end, "zh", "LOW")
+end
+
+-- Subscribe to WoWTranslate Hub ON_TRANSLATED push events (zero duplicate DLL calls)
+local wtSubFrame = CreateFrame("Frame")
+wtSubFrame:RegisterEvent("PLAYER_LOGIN")
+wtSubFrame:SetScript("OnEvent", function()
+  if type(WoWTranslate_RegisterCallback) ~= "function" then return end
+  WoWTranslate_RegisterCallback("ON_TRANSLATED", function(rawText, translated)
+    if not rawText or rawText == "" or not translated or translated == "" then return end
+    local segments = SegmentLinks(rawText)
+    local upgraded = ReconstructWithLinks(segments, translated)
+    upgraded = string_gsub(upgraded, "%s+", " ")
+    upgraded = string_gsub(upgraded, "%s+$", "")
+    if upgraded == "" then return end
+
+    if _translateMemo[rawText] == nil then
+      if _translateMemoCount >= TRANSLATE_MEMO_MAX then
+        _translateMemo = {}
+        _translateMemoCount = 0
+      end
+      _translateMemoCount = _translateMemoCount + 1
+    end
+    _translateMemo[rawText] = upgraded
+
+    if not DBB2 or not DBB2.messages then return end
+    local anyChanged = false
+    for i = 1, table.getn(DBB2.messages) do
+      local m = DBB2.messages[i]
+      if m and m._rawMessage == rawText and m.message ~= upgraded then
+        m.message = upgraded
+        m._catCache = nil
+        m._cleanLower = nil
+        m._wtUpgraded = true
+        anyChanged = true
+      end
+    end
+    if anyChanged then
+      if DBB2.perf then
+        DBB2.perf.wtAsyncUpgrades = (DBB2.perf.wtAsyncUpgrades or 0) + 1
+      end
+      if DBB2.gui and DBB2.gui:IsShown() then
+        if DBB2.gui.UpdateMessages then DBB2.gui:UpdateMessages() end
+        if DBB2.gui.tabs and DBB2.gui.tabs.activeTab then
+          local activeTab = DBB2.gui.tabs.activeTab
+          if activeTab == "Groups" or activeTab == "Professions" or activeTab == "Hardcore" then
+            local panel = DBB2.gui.tabs.panels[activeTab]
+            if panel and panel.UpdateCategories then panel.UpdateCategories() end
+          end
+        end
+      end
+    end
+  end)
+end)
