@@ -8,7 +8,7 @@ A World of Warcraft 1.12 / Turtle WoW addon that scans world chat and organizes 
 |---|---|---|
 | **[ClassicAPI](https://github.com/brues-code/ClassicAPI)** | Calls `C_PlayerCache.GetPlayerInfoByName` to display sender names in their cross-faction class colors (`RAID_CLASS_COLORS`). Falls back to white text when absent. | Optional |
 | **UnitXP SP3** | Calls `UnitXP("notify", "taskbarIcon")` (5s cooldown) when a watched category notification fires while alt-tabbed. | Optional |
-| **[WoWTranslate](https://github.com/sanjaygbhat/wow-translate)** (v2.2 fork) | Subscribes to `WoWTranslate_RegisterCallback("ON_TRANSLATED")` for zero-duplicate push upgrades, uses `"LOW"` priority in `WoWTranslate_API.Translate`, and reuses `WoWTranslate_CacheGet`, `WoWTranslate_GetItemName`, `WoWTranslate_ReplaceItemNames`, and `WoWTranslate_CheckGlossaryExact` / `WoWTranslate_CheckGlossaryPartial`. Falls back to DBB2's built-in CN dictionaries when absent. | Optional |
+| **[WoWTranslate](https://github.com/mycoursehqazsedc00-boop/WoWTranslate)** (v2.2 fork) | Subscribes to `WoWTranslate_RegisterCallback("ON_TRANSLATED")` for zero-duplicate push upgrades, uses `"LOW"` priority in `WoWTranslate_API.Translate`, and reuses `WoWTranslate_CacheGet`, `WoWTranslate_GetItemName`, `WoWTranslate_ReplaceItemNames`, and `WoWTranslate_CheckGlossaryExact` / `WoWTranslate_CheckGlossaryPartial`. Falls back to DBB2's built-in CN dictionaries when absent. | Optional |
 | **Meeting** | Shared Blacklist / Block Words synergy (`Meeting.CheckBlockWords`) and `Alt+Click` Quick-Apply bridge (`Meeting.QuickApply`) with hover tooltip when a sender has an active Meeting room. | Optional |
 
 No other client DLL mods (SuperWoW, Nampower, VanillaHelpers, WeirdUtils) are called by this addon.
